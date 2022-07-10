@@ -187,6 +187,14 @@ class OpenWeatherMap extends AbstractProvider
             }
         }
 
+        if (
+            array_key_exists('clouds', $weatherRawData) &&
+            is_array($weatherRawData['clouds']) &&
+            array_key_exists('all', $weatherRawData['clouds'])
+        ) {
+            $weatherData->setCloudCover($weatherRawData['clouds']['all']);
+        }
+
         $dateTime = (new DateTime())->setTimezone(new DateTimeZone('UTC'));
         if (array_key_exists('dt', $weatherRawData)) {
             $dateTime->setTimestamp($weatherRawData['dt']);

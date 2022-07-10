@@ -38,6 +38,8 @@ interface WeatherDataInterface extends JsonSerializable
 
     public function getPrecipitation(): ?float;
     public function setPrecipitation(?float $precipitation): self;
+    public function getCloudCover(): ?float;
+    public function setCloudCover(?float $cloudCover): self;
 
     public function getUtcDateTime(): ?DateTimeInterface;
     public function setUtcDateTime(?DateTimeInterface $utcDateTime): self;
