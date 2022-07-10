@@ -287,4 +287,18 @@ class WeatherData implements WeatherDataInterface
 
         return $this;
     }
+
+    /**
+     * @return mixed
+     * @noinspection PhpMixedReturnTypeCanBeReducedInspection
+     */
+    public function jsonSerialize(): mixed
+    {
+        return $this->toArray();
+    }
+
+    public function toArray(): array
+    {
+        return get_object_vars($this);
+    }
 }

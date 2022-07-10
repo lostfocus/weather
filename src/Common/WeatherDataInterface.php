@@ -4,8 +4,9 @@ declare(strict_types=1);
 namespace Lostfocus\Weather\Common;
 
 use DateTimeInterface;
+use JsonSerializable;
 
-interface WeatherDataInterface
+interface WeatherDataInterface extends JsonSerializable
 {
     public const CURRENT = 'current';
     public const HISTORICAL = 'historical';
