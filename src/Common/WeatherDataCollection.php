@@ -3,9 +3,14 @@ declare(strict_types=1);
 
 namespace Lostfocus\Weather\Common;
 
+use DateTime;
+use DateTimeImmutable;
+use DateTimeInterface;
+
 class WeatherDataCollection implements WeatherDataCollectionInterface
 {
     private int $position;
+    private ?DateTimeImmutable $maxDateTime = null;
 
     /**
      * @var WeatherDataInterface[]
@@ -59,6 +64,39 @@ class WeatherDataCollection implements WeatherDataCollectionInterface
     {
         $this->items[] = $weatherData;
 
+        if ($this->maxDateTime === null || $weatherData->getUtcDateTime() > $this->maxDateTime) {
+            $utcDateTime = $weatherData->getUtcDateTime();
+            if ($utcDateTime instanceof DateTimeImmutable) {
+                $this->maxDateTime = $utcDateTime;
+            } elseif ($utcDateTime instanceof DateTime) {
+                $this->maxDateTime = DateTimeImmutable::createFromMutable($utcDateTime);
+            }
+        }
+
         return $this;
+    }
+
+    public function getMaxDate(): ?DateTimeImmutable
+    {
+        return $this->maxDateTime;
+    }
+
+    public function getClosest(DateTimeInterface $dateTime): ?WeatherDataInterface
+    {
+        $closest = null;
+        $distance = null;
+
+        foreach ($this->items as $weatherData) {
+            if ($weatherData->getUtcDateTime() === null) {
+                continue;
+            }
+            $weatherDataDistance = abs($weatherData->getUtcDateTime()->getTimestamp() - $dateTime->getTimestamp());
+            if ($distance === null || $weatherDataDistance < $distance) {
+                $distance = $weatherDataDistance;
+                $closest = $weatherData;
+            }
+        }
+
+        return $closest;
     }
 }

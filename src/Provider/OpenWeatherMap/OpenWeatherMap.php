@@ -3,7 +3,9 @@ declare(strict_types=1);
 
 namespace Lostfocus\Weather\Provider\OpenWeatherMap;
 
+use DateInterval;
 use DateTime;
+use DateTimeInterface;
 use DateTimeZone;
 use Http\Client\HttpClient;
 use JsonException;
@@ -11,6 +13,8 @@ use Lostfocus\Weather\Common\AbstractProvider;
 use Lostfocus\Weather\Common\WeatherDataCollection;
 use Lostfocus\Weather\Common\WeatherDataCollectionInterface;
 use Lostfocus\Weather\Common\WeatherDataInterface;
+use Lostfocus\Weather\Exceptions\ForecastNoMaxDateException;
+use Lostfocus\Weather\Exceptions\ForecastNotPossibleException;
 use Lostfocus\Weather\Exceptions\WeatherException;
 use Psr\Http\Message\RequestFactoryInterface;
 
@@ -105,9 +109,7 @@ class OpenWeatherMap extends AbstractProvider
 
         $weatherData = new WeatherDataCollection();
 
-
         foreach ($weatherRawData['list'] as $weatherRawDataItem) {
-
             $weatherData->add(
                 $this->mapWeatherData(
                     WeatherDataInterface::FORECAST,
@@ -192,5 +194,37 @@ class OpenWeatherMap extends AbstractProvider
         $weatherData->setUtcDateTime($dateTime);
 
         return $weatherData;
+    }
+
+    /**
+     * @param  float  $latitude
+     * @param  float  $longitude
+     * @param  DateTimeInterface  $dateTime
+     * @param  string  $units
+     * @param  string  $lang
+     * @return WeatherDataInterface|null
+     * @throws WeatherException
+     */
+    public function getForecast(
+        float $latitude,
+        float $longitude,
+        DateTimeInterface $dateTime,
+        string $units = self::UNIT_METRIC,
+        string $lang = 'en'
+    ): ?WeatherDataInterface {
+        $forecastCollection = $this->getForecastCollection($latitude, $longitude, $units, $lang);
+
+        $maxForecastDate = $forecastCollection->getMaxDate();
+        if ($maxForecastDate === null) {
+            throw new ForecastNoMaxDateException();
+        }
+
+        $limit = $maxForecastDate->add(new DateInterval('PT1H30M'));
+
+        if ($dateTime > $limit) {
+            throw new ForecastNotPossibleException();
+        }
+
+        return $forecastCollection->getClosest($dateTime);
     }
 }

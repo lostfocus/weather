@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace Lostfocus\Weather\Common;
 
+use DateTimeInterface;
+
 interface ProviderInterface
 {
     public const UNIT_METRIC = 'metric';
@@ -14,6 +16,14 @@ interface ProviderInterface
         string $units = self::UNIT_METRIC,
         string $lang = 'en'
     ): WeatherDataInterface;
+
+    public function getForecast(
+        float $latitude,
+        float $longitude,
+        DateTimeInterface $dateTime,
+        string $units = self::UNIT_METRIC,
+        string $lang = 'en'
+    ): ?WeatherDataInterface;
 
     public function getForecastCollection(
         float $latitude,
