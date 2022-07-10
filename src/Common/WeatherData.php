@@ -18,6 +18,7 @@ class WeatherData implements WeatherDataInterface
     protected ?float $windSpeed = null;
     protected ?float $windDirection = null;
     protected ?float $precipitation = null;
+    protected ?float $precipitationProbability = null;
     protected ?float $cloudCover = null;
     protected ?DateTimeInterface $utcDateTime = null;
     protected ?string $type = null;
@@ -228,6 +229,25 @@ class WeatherData implements WeatherDataInterface
     public function setPrecipitation(?float $precipitation): self
     {
         $this->precipitation = $precipitation;
+
+        return $this;
+    }
+
+    /**
+     * @return float|null
+     */
+    public function getPrecipitationProbability(): ?float
+    {
+        return $this->precipitationProbability;
+    }
+
+    /**
+     * @param  float|null  $precipitationProbability
+     * @return WeatherData
+     */
+    public function setPrecipitationProbability(?float $precipitationProbability): self
+    {
+        $this->precipitationProbability = $precipitationProbability;
 
         return $this;
     }

@@ -38,6 +38,8 @@ interface WeatherDataInterface extends JsonSerializable
 
     public function getPrecipitation(): ?float;
     public function setPrecipitation(?float $precipitation): self;
+    public function getPrecipitationProbability(): ?float;
+    public function setPrecipitationProbability(?float $precipitationProbability): self;
     public function getCloudCover(): ?float;
     public function setCloudCover(?float $cloudCover): self;
 

@@ -192,7 +192,11 @@ class OpenWeatherMap extends AbstractProvider
             is_array($weatherRawData['clouds']) &&
             array_key_exists('all', $weatherRawData['clouds'])
         ) {
-            $weatherData->setCloudCover($weatherRawData['clouds']['all']);
+            $weatherData->setCloudCover($weatherRawData['clouds']['all'] / 100);
+        }
+
+        if (array_key_exists('pop', $weatherRawData)) {
+            $weatherData->setPrecipitationProbability($weatherRawData['pop']);
         }
 
         $dateTime = (new DateTime())->setTimezone(new DateTimeZone('UTC'));

@@ -9,6 +9,7 @@ use DateTimeZone;
 use Http\Client\HttpClient;
 use JsonException;
 use Lostfocus\Weather\Common\AbstractProvider;
+use Lostfocus\Weather\Common\WeatherDataCollection;
 use Lostfocus\Weather\Common\WeatherDataCollectionInterface;
 use Lostfocus\Weather\Common\WeatherDataInterface;
 use Lostfocus\Weather\Exceptions\WeatherException;
@@ -37,8 +38,6 @@ class DarkSky extends AbstractProvider
         string $units = self::UNIT_METRIC,
         string $lang = 'en'
     ): WeatherDataInterface {
-        $darkSkyUnits = ($units === self::UNIT_METRIC) ? 'si' : 'us';
-
         $querystring = sprintf(
             "https://api.darksky.net/forecast/%s/%s,%s,%s?lang=%s&units=%s&exclude=minutely,hourly,daily",
             $this->key,
@@ -46,9 +45,10 @@ class DarkSky extends AbstractProvider
             $longitude,
             time(),
             $lang,
-            $darkSkyUnits
+            $this->mapUnits($units)
         );
 
+        /** @noinspection DuplicatedCode */
         $request = $this->getRequest('GET', $querystring);
 
         $response = $this->getParsedResponse($request);
@@ -59,61 +59,22 @@ class DarkSky extends AbstractProvider
             throw new WeatherException($e->getMessage(), $e->getCode(), $e);
         }
 
-        $type = WeatherDataInterface::CURRENT;
-
-        $weatherData = new DarkSkyData();
-        $weatherData->setType($type);
+        $weatherDataLatitude = $latitude;
+        $weatherDataLongitude = $longitude;
         if (array_key_exists('latitude', $weatherRawData)) {
-            $weatherData->setLatitude($weatherRawData['latitude']);
+            $weatherDataLatitude = $weatherRawData['latitude'];
         }
         if (array_key_exists('longitude', $weatherRawData)) {
-            $weatherData->setLongitude($weatherRawData['longitude']);
+            $weatherDataLongitude = $weatherRawData['longitude'];
         }
 
-        if ($weatherData->getLatitude() === null) {
-            $weatherData->setLatitude($latitude);
-        }
-        if ($weatherData->getLongitude() === null) {
-            $weatherData->setLongitude($longitude);
-        }
 
-        if (array_key_exists('currently', $weatherRawData) && is_array($weatherRawData['currently'])) {
-            if (array_key_exists('temperature', $weatherRawData['currently'])) {
-                $weatherData->setTemperature($weatherRawData['currently']['temperature']);
-            }
-            if (array_key_exists('apparentTemperature', $weatherRawData['currently'])) {
-                $weatherData->setFeelsLike($weatherRawData['currently']['apparentTemperature']);
-            }
-            if (array_key_exists('humidity', $weatherRawData['currently'])) {
-                $weatherData->setHumidity($weatherRawData['currently']['humidity']);
-            }
-            if (array_key_exists('pressure', $weatherRawData['currently'])) {
-                $weatherData->setPressure($weatherRawData['currently']['pressure']);
-            }
-            if (array_key_exists('windSpeed', $weatherRawData['currently'])) {
-                $weatherData->setWindSpeed($weatherRawData['currently']['windSpeed']);
-            }
-            if (array_key_exists('windBearing', $weatherRawData['currently'])) {
-                $weatherData->setWindDirection($weatherRawData['currently']['windBearing']);
-            }
-            if (array_key_exists('precipIntensity', $weatherRawData['currently'])) {
-                $weatherData->setPrecipitation($weatherRawData['currently']['precipIntensity']);
-            }
-            if (array_key_exists('cloudCover', $weatherRawData['currently'])) {
-                $weatherData->setCloudCover($weatherRawData['currently']['cloudCover']);
-            }
-        }
-
-        $dateTime = (new DateTime())->setTimezone(new DateTimeZone('UTC'));
-        if (array_key_exists('currently', $weatherRawData) &&
-            is_array($weatherRawData['currently']) &&
-            array_key_exists('time', $weatherRawData['currently'])
-        ) {
-            $dateTime->setTimestamp($weatherRawData['currently']['time']);
-        }
-        $weatherData->setUtcDateTime($dateTime);
-
-        return $weatherData;
+        return $this->mapWeatherData(
+            WeatherDataInterface::CURRENT,
+            $weatherRawData['currently'],
+            $weatherDataLatitude,
+            $weatherDataLongitude
+        );
     }
 
     public function getForecast(
@@ -126,12 +87,152 @@ class DarkSky extends AbstractProvider
         // TODO: Implement getForecast() method.
     }
 
+    /**
+     * @throws WeatherException
+     */
     public function getForecastCollection(
         float $latitude,
         float $longitude,
         string $units = self::UNIT_METRIC,
         string $lang = 'en'
     ): WeatherDataCollectionInterface {
-        // TODO: Implement getForecastCollection() method.
+        $querystring = sprintf(
+            "https://api.darksky.net/forecast/%s/%s,%s?lang=%s&units=%s",
+            $this->key,
+            $latitude,
+            $longitude,
+            $lang,
+            $this->mapUnits($units)
+        );
+
+        /** @noinspection DuplicatedCode */
+        $request = $this->getRequest('GET', $querystring);
+
+        $response = $this->getParsedResponse($request);
+
+        try {
+            $weatherRawData = json_decode($response, true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException $e) {
+            throw new WeatherException($e->getMessage(), $e->getCode(), $e);
+        }
+
+        // var_dump($weatherRawData);
+
+        $weatherDataLatitude = $latitude;
+        $weatherDataLongitude = $longitude;
+        if (array_key_exists('latitude', $weatherRawData)) {
+            $weatherDataLatitude = $weatherRawData['latitude'];
+        }
+        if (array_key_exists('longitude', $weatherRawData)) {
+            $weatherDataLongitude = $weatherRawData['longitude'];
+        }
+
+        $weatherData = new WeatherDataCollection();
+
+        if (array_key_exists('currently', $weatherRawData)) {
+            $weatherData->add(
+                $this->mapWeatherData(
+                    WeatherDataInterface::CURRENT,
+                    $weatherRawData['currently'],
+                    $weatherDataLatitude,
+                    $weatherDataLongitude
+                )
+            );
+        }
+
+        $keys = ['minutely', 'hourly', 'daily'];
+
+        foreach ($keys as $key) {
+            if (
+                array_key_exists($key, $weatherRawData) &&
+                is_array($weatherRawData[$key]) &&
+                array_key_exists('data', $weatherRawData[$key]) &&
+                is_array($weatherRawData[$key]['data'])
+            ) {
+                foreach ($weatherRawData[$key]['data'] as $weatherRawDataItem) {
+                    $weatherData->add(
+                        $this->mapWeatherData(
+                            WeatherDataInterface::FORECAST,
+                            $weatherRawDataItem,
+                            $weatherDataLatitude,
+                            $weatherDataLongitude
+                        )
+                    );
+                }
+            }
+        }
+
+        return $weatherData;
+    }
+
+    /**
+     * @param  string  $type
+     * @param  array  $weatherRawData
+     * @param  float  $latitude
+     * @param  float  $longitude
+     * @return DarkSkyData
+     */
+    private function mapWeatherData(string $type, array $weatherRawData, float $latitude, float $longitude): DarkSkyData
+    {
+        $weatherData = new DarkSkyData();
+        $weatherData->setType($type);
+
+        if ($weatherData->getLatitude() === null) {
+            $weatherData->setLatitude($latitude);
+        }
+        if ($weatherData->getLongitude() === null) {
+            $weatherData->setLongitude($longitude);
+        }
+
+        if (array_key_exists('temperature', $weatherRawData)) {
+            $weatherData->setTemperature($weatherRawData['temperature']);
+        }
+        if (array_key_exists('temperatureMin', $weatherRawData)) {
+            $weatherData->setTemperatureMin($weatherRawData['temperatureMin']);
+        }
+        if (array_key_exists('temperatureMax', $weatherRawData)) {
+            $weatherData->setTemperatureMax($weatherRawData['temperatureMax']);
+        }
+        if (array_key_exists('apparentTemperature', $weatherRawData)) {
+            $weatherData->setFeelsLike($weatherRawData['apparentTemperature']);
+        }
+        if (array_key_exists('humidity', $weatherRawData)) {
+            $weatherData->setHumidity($weatherRawData['humidity']);
+        }
+        if (array_key_exists('pressure', $weatherRawData)) {
+            $weatherData->setPressure($weatherRawData['pressure']);
+        }
+        if (array_key_exists('windSpeed', $weatherRawData)) {
+            $weatherData->setWindSpeed($weatherRawData['windSpeed']);
+        }
+        if (array_key_exists('windBearing', $weatherRawData)) {
+            $weatherData->setWindDirection($weatherRawData['windBearing']);
+        }
+        if (array_key_exists('precipIntensity', $weatherRawData)) {
+            $weatherData->setPrecipitation($weatherRawData['precipIntensity']);
+        }
+        if (array_key_exists('precipProbability', $weatherRawData)) {
+            $weatherData->setPrecipitationProbability($weatherRawData['precipProbability']);
+        }
+        if (array_key_exists('cloudCover', $weatherRawData)) {
+            $weatherData->setCloudCover($weatherRawData['cloudCover']);
+        }
+
+        $dateTime = (new DateTime())->setTimezone(new DateTimeZone('UTC'));
+        if (array_key_exists('time', $weatherRawData)) {
+            $dateTime->setTimestamp($weatherRawData['time']);
+        }
+        $weatherData->setUtcDateTime($dateTime);
+
+        return $weatherData;
+    }
+
+    /**
+     * @param  string  $units
+     * @return string
+     */
+    private function mapUnits(string $units): string
+    {
+        return ($units === self::UNIT_METRIC) ? 'si' : 'us';
     }
 }
