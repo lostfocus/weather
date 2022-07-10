@@ -8,11 +8,11 @@ use DateTime;
 use DateTimeInterface;
 use DateTimeZone;
 use Http\Client\HttpClient;
-use JsonException;
 use Lostfocus\Weather\Common\AbstractProvider;
 use Lostfocus\Weather\Common\WeatherDataCollection;
 use Lostfocus\Weather\Common\WeatherDataCollectionInterface;
 use Lostfocus\Weather\Common\WeatherDataInterface;
+use Lostfocus\Weather\Exceptions\DateNotInTheFutureException;
 use Lostfocus\Weather\Exceptions\ForecastNoMaxDateException;
 use Lostfocus\Weather\Exceptions\ForecastNotPossibleException;
 use Lostfocus\Weather\Exceptions\WeatherException;
@@ -51,15 +51,7 @@ class OpenWeatherMap extends AbstractProvider
             $lang
         );
 
-        $request = $this->getRequest('GET', $querystring);
-
-        $response = $this->getParsedResponse($request);
-
-        try {
-            $weatherRawData = json_decode($response, true, 512, JSON_THROW_ON_ERROR);
-        } catch (JsonException $e) {
-            throw new WeatherException($e->getMessage(), $e->getCode(), $e);
-        }
+        $weatherRawData = $this->getArrayFromQueryString($querystring);
 
         return $this->mapWeatherData(WeatherDataInterface::CURRENT, $weatherRawData, $latitude, $longitude);
     }
@@ -82,14 +74,7 @@ class OpenWeatherMap extends AbstractProvider
             $lang
         );
 
-        $request = $this->getRequest('GET', $querystring);
-        $response = $this->getParsedResponse($request);
-
-        try {
-            $weatherRawData = json_decode($response, true, 512, JSON_THROW_ON_ERROR);
-        } catch (JsonException $e) {
-            throw new WeatherException($e->getMessage(), $e->getCode(), $e);
-        }
+        $weatherRawData = $this->getArrayFromQueryString($querystring);
 
         $weatherDataLatitude = $latitude;
         $weatherDataLongitude = $longitude;
@@ -224,6 +209,10 @@ class OpenWeatherMap extends AbstractProvider
         string $units = self::UNIT_METRIC,
         string $lang = 'en'
     ): ?WeatherDataInterface {
+        if ($dateTime < new DateTime()) {
+            throw new DateNotInTheFutureException();
+        }
+
         $forecastCollection = $this->getForecastCollection($latitude, $longitude, $units, $lang);
 
         $maxForecastDate = $forecastCollection->getMaxDate();

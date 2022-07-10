@@ -3,15 +3,18 @@ declare(strict_types=1);
 
 namespace Lostfocus\Weather\Provider\DarkSky;
 
+use DateInterval;
 use DateTime;
 use DateTimeInterface;
 use DateTimeZone;
 use Http\Client\HttpClient;
-use JsonException;
 use Lostfocus\Weather\Common\AbstractProvider;
 use Lostfocus\Weather\Common\WeatherDataCollection;
 use Lostfocus\Weather\Common\WeatherDataCollectionInterface;
 use Lostfocus\Weather\Common\WeatherDataInterface;
+use Lostfocus\Weather\Exceptions\DateNotInTheFutureException;
+use Lostfocus\Weather\Exceptions\ForecastNoMaxDateException;
+use Lostfocus\Weather\Exceptions\ForecastNotPossibleException;
 use Lostfocus\Weather\Exceptions\WeatherException;
 use Psr\Http\Message\RequestFactoryInterface;
 
@@ -48,16 +51,7 @@ class DarkSky extends AbstractProvider
             $this->mapUnits($units)
         );
 
-        /** @noinspection DuplicatedCode */
-        $request = $this->getRequest('GET', $querystring);
-
-        $response = $this->getParsedResponse($request);
-
-        try {
-            $weatherRawData = json_decode($response, true, 512, JSON_THROW_ON_ERROR);
-        } catch (JsonException $e) {
-            throw new WeatherException($e->getMessage(), $e->getCode(), $e);
-        }
+        $weatherRawData = $this->getArrayFromQueryString($querystring);
 
         $weatherDataLatitude = $latitude;
         $weatherDataLongitude = $longitude;
@@ -77,6 +71,9 @@ class DarkSky extends AbstractProvider
         );
     }
 
+    /**
+     * @throws WeatherException
+     */
     public function getForecast(
         float $latitude,
         float $longitude,
@@ -84,7 +81,24 @@ class DarkSky extends AbstractProvider
         string $units = self::UNIT_METRIC,
         string $lang = 'en'
     ): ?WeatherDataInterface {
-        // TODO: Implement getForecast() method.
+        if ($dateTime < new DateTime()) {
+            throw new DateNotInTheFutureException();
+        }
+
+        $forecastCollection = $this->getForecastCollection($latitude, $longitude, $units, $lang);
+
+        $maxForecastDate = $forecastCollection->getMaxDate();
+        if ($maxForecastDate === null) {
+            throw new ForecastNoMaxDateException();
+        }
+
+        $limit = $maxForecastDate->add(new DateInterval('PT12H'));
+
+        if ($dateTime > $limit) {
+            throw new ForecastNotPossibleException();
+        }
+
+        return $forecastCollection->getClosest($dateTime);
     }
 
     /**
@@ -105,18 +119,7 @@ class DarkSky extends AbstractProvider
             $this->mapUnits($units)
         );
 
-        /** @noinspection DuplicatedCode */
-        $request = $this->getRequest('GET', $querystring);
-
-        $response = $this->getParsedResponse($request);
-
-        try {
-            $weatherRawData = json_decode($response, true, 512, JSON_THROW_ON_ERROR);
-        } catch (JsonException $e) {
-            throw new WeatherException($e->getMessage(), $e->getCode(), $e);
-        }
-
-        // var_dump($weatherRawData);
+        $weatherRawData = $this->getArrayFromQueryString($querystring);
 
         $weatherDataLatitude = $latitude;
         $weatherDataLongitude = $longitude;

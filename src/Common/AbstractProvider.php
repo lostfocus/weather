@@ -5,6 +5,7 @@ namespace Lostfocus\Weather\Common;
 
 use Http\Client\HttpClient;
 use Http\Discovery\Psr17FactoryDiscovery;
+use JsonException;
 use Lostfocus\Weather\Exceptions\InvalidCredentials;
 use Lostfocus\Weather\Exceptions\QuotaExceeded;
 use Lostfocus\Weather\Exceptions\ServerException;
@@ -31,6 +32,24 @@ abstract class AbstractProvider implements ProviderInterface
     protected function getRequest(string $method, string $url): RequestInterface
     {
         return $this->requestFactory->createRequest($method, $url);
+    }
+
+    /**
+     * @param  string  $querystring
+     * @return array
+     * @throws WeatherException
+     */
+    protected function getArrayFromQueryString(string $querystring): array
+    {
+        $request = $this->getRequest('GET', $querystring);
+
+        $response = $this->getParsedResponse($request);
+
+        try {
+            return json_decode($response, true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException $e) {
+            throw new WeatherException($e->getMessage(), $e->getCode(), $e);
+        }
     }
 
     /**
