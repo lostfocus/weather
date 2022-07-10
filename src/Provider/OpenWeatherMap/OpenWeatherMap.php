@@ -15,6 +15,7 @@ use Lostfocus\Weather\Common\WeatherDataInterface;
 use Lostfocus\Weather\Exceptions\DateNotInTheFutureException;
 use Lostfocus\Weather\Exceptions\ForecastNoMaxDateException;
 use Lostfocus\Weather\Exceptions\ForecastNotPossibleException;
+use Lostfocus\Weather\Exceptions\HistoricalDataNotAvailableException;
 use Lostfocus\Weather\Exceptions\WeatherException;
 use Psr\Http\Message\RequestFactoryInterface;
 
@@ -227,5 +228,24 @@ class OpenWeatherMap extends AbstractProvider
         }
 
         return $forecastCollection->getClosest($dateTime);
+    }
+
+    /**
+     * @param  float  $latitude
+     * @param  float  $longitude
+     * @param  DateTimeInterface  $dateTime
+     * @param  string  $units
+     * @param  string  $lang
+     * @return WeatherDataInterface|null
+     * @throws WeatherException
+     */
+    public function getHistorical(
+        float $latitude,
+        float $longitude,
+        DateTimeInterface $dateTime,
+        string $units = self::UNIT_METRIC,
+        string $lang = 'en'
+    ): ?WeatherDataInterface {
+        throw new HistoricalDataNotAvailableException();
     }
 }

@@ -25,6 +25,14 @@ interface ProviderInterface
         string $lang = 'en'
     ): ?WeatherDataInterface;
 
+    public function getHistorical(
+        float $latitude,
+        float $longitude,
+        DateTimeInterface $dateTime,
+        string $units = self::UNIT_METRIC,
+        string $lang = 'en'
+    ): ?WeatherDataInterface;
+
     public function getForecastCollection(
         float $latitude,
         float $longitude,

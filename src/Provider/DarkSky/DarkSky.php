@@ -41,33 +41,32 @@ class DarkSky extends AbstractProvider
         string $units = self::UNIT_METRIC,
         string $lang = 'en'
     ): WeatherDataInterface {
-        $querystring = sprintf(
-            "https://api.darksky.net/forecast/%s/%s,%s,%s?lang=%s&units=%s&exclude=minutely,hourly,daily",
-            $this->key,
+        return $this->getAtDateTime(
             $latitude,
             $longitude,
-            time(),
+            new DateTime(),
+            $units,
             $lang,
-            $this->mapUnits($units)
+            WeatherDataInterface::CURRENT
         );
+    }
 
-        $weatherRawData = $this->getArrayFromQueryString($querystring);
-
-        $weatherDataLatitude = $latitude;
-        $weatherDataLongitude = $longitude;
-        if (array_key_exists('latitude', $weatherRawData)) {
-            $weatherDataLatitude = $weatherRawData['latitude'];
-        }
-        if (array_key_exists('longitude', $weatherRawData)) {
-            $weatherDataLongitude = $weatherRawData['longitude'];
-        }
-
-
-        return $this->mapWeatherData(
-            WeatherDataInterface::CURRENT,
-            $weatherRawData['currently'],
-            $weatherDataLatitude,
-            $weatherDataLongitude
+    /**
+     * @throws WeatherException
+     */
+    public function getHistorical(
+        float $latitude,
+        float $longitude,
+        DateTimeInterface $dateTime,
+        string $units = self::UNIT_METRIC,
+        string $lang = 'en'
+    ): ?WeatherDataInterface {
+        return $this->getAtDateTime(
+            $latitude,
+            $longitude,
+            $dateTime,
+            $units,
+            $lang
         );
     }
 
@@ -238,4 +237,46 @@ class DarkSky extends AbstractProvider
     {
         return ($units === self::UNIT_METRIC) ? 'si' : 'us';
     }
+
+    /**
+     * @throws WeatherException
+     */
+    public function getAtDateTime(
+        float $latitude,
+        float $longitude,
+        DateTimeInterface $dateTime,
+        string $units = self::UNIT_METRIC,
+        string $lang = 'en',
+        string $type = WeatherDataInterface::HISTORICAL
+    ): ?WeatherDataInterface {
+        $querystring = sprintf(
+            "https://api.darksky.net/forecast/%s/%s,%s,%s?lang=%s&units=%s&exclude=minutely,hourly,daily",
+            $this->key,
+            $latitude,
+            $longitude,
+            $dateTime->getTimestamp(),
+            $lang,
+            $this->mapUnits($units)
+        );
+
+        $weatherRawData = $this->getArrayFromQueryString($querystring);
+
+        $weatherDataLatitude = $latitude;
+        $weatherDataLongitude = $longitude;
+        if (array_key_exists('latitude', $weatherRawData)) {
+            $weatherDataLatitude = $weatherRawData['latitude'];
+        }
+        if (array_key_exists('longitude', $weatherRawData)) {
+            $weatherDataLongitude = $weatherRawData['longitude'];
+        }
+
+
+        return $this->mapWeatherData(
+            $type,
+            $weatherRawData['currently'],
+            $weatherDataLatitude,
+            $weatherDataLongitude
+        );
+    }
+
 }
