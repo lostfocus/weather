@@ -15,7 +15,7 @@ interface ProviderInterface
         string $lang = 'en'
     ): WeatherDataInterface;
 
-    public function getForecastWeatherLine(
+    public function getForecastCollection(
         float $latitude,
         float $longitude,
         string $units = self::UNIT_METRIC,
