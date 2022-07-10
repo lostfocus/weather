@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Lostfocus\Weather\Common;
 
-class Source
+class Source implements \JsonSerializable
 {
     private ?string $shortName;
     private ?string $name;
@@ -43,5 +43,19 @@ class Source
     public function getCreditUrl(): ?string
     {
         return $this->creditUrl;
+    }
+
+    /**
+     * @return mixed
+     * @noinspection PhpMixedReturnTypeCanBeReducedInspection
+     */
+    public function jsonSerialize(): mixed
+    {
+        return $this->toArray();
+    }
+
+    public function toArray(): array
+    {
+        return get_object_vars($this);
     }
 }
