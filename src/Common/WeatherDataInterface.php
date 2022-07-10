@@ -47,6 +47,6 @@ interface WeatherDataInterface extends JsonSerializable
     public function setUtcDateTime(?DateTimeInterface $utcDateTime): self;
     public function getType(): ?string;
     public function setType(?string $type): self;
-    public function getSource(): ?string;
-    public function setSource(?string $source): self;
+    public function getSource(): ?Source;
+    public function setSource(?Source $source): self;
 }
