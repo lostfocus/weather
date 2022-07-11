@@ -9,8 +9,10 @@ use DateTimeZone;
 use Http\Client\HttpClient;
 use Lostfocus\Weather\Common\AbstractProvider;
 use Lostfocus\Weather\Common\ProviderInterface;
+use Lostfocus\Weather\Common\WeatherDataCollection;
 use Lostfocus\Weather\Common\WeatherDataCollectionInterface;
 use Lostfocus\Weather\Common\WeatherDataInterface;
+use Lostfocus\Weather\Exceptions\HistoricalDataNotAvailableException;
 use Lostfocus\Weather\Exceptions\WeatherException;
 use Psr\Http\Message\RequestFactoryInterface;
 
@@ -58,49 +60,46 @@ class VisualCrossing extends AbstractProvider
         string $lang = 'en'
     ): ?WeatherDataInterface {
 
+        $queryUrl = sprintf(
+            'https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/%s/%s',
+            implode(',', [$latitude, $longitude]),
+            $dateTime->getTimestamp()
+        );
+
         $query = [
-            'location' => implode(',', [$latitude, $longitude]),
-            'aggregateHours' => 1,
-            'startDateTime' => $dateTime->format('Y-m-d\TH:i:s'),
-            'timezone' => 'Z',
             'key' => $this->key,
-            'contentType' => 'json',
             'lang' => $lang,
             'unitGroup' => $this->mapUnits($units),
         ];
 
         $queryString = sprintf(
-            'https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/weatherdata/history?%s',
+            '%s?%s',
+            $queryUrl,
             http_build_query($query)
         );
 
         $weatherRawData = $this->getArrayFromQueryString($queryString);
 
-        $arrayReverse = array_reverse($weatherRawData['locations']);
-        $location = array_pop($arrayReverse);
-        $value = $location['values'][0];
+        $weatherCollection = new WeatherDataCollection();
 
-        $weatherData = new VisualCrossingData();
-        $weatherData->setLatitude($location['latitude'])
-            ->setLongitude($location['longitude'])
-            ->setTemperature($value['temp'])
-            ->setTemperatureMin($value['mint'])
-            ->setTemperatureMax($value['maxt'])
-            ->setHumidity($value['humidity'] / 100)
-            ->setPressure($value['sealevelpressure'])
-            ->setWindSpeed($value['wspd'])
-            ->setWindDirection($value['wdir'])
-            ->setPrecipitation($value['precip'])
-            ->setCloudCover($value['cloudcover'] / 100)
-            ->setType(WeatherDataInterface::HISTORICAL);
+        foreach ($weatherRawData['days'] as $weatherDayRawData) {
+            foreach ($weatherDayRawData['hours'] as $weatherHourRawData) {
+                $weatherData = $this->mapWeatherData(
+                    $weatherRawData['latitude'],
+                    $weatherRawData['longitude'],
+                    $weatherHourRawData,
+                    $weatherDayRawData
+                );
+                $weatherCollection->add($weatherData);
+            }
+        }
 
-        $utcDateTime = (new DateTime())
-            ->setTimezone(new DateTimeZone('UTC'))
-            ->setTimestamp($value['datetime'] / 1000);
+        $historical = $weatherCollection->getClosest($dateTime);
+        if ($historical === null) {
+            throw new HistoricalDataNotAvailableException();
+        }
 
-        $weatherData->setUtcDateTime($utcDateTime);
-
-        return $weatherData;
+        return $historical;
     }
 
     public function getForecastCollection(
@@ -119,5 +118,43 @@ class VisualCrossing extends AbstractProvider
         }
 
         return 'us';
+    }
+
+    private function mapWeatherData(
+        float $latitude,
+        float $longitude,
+        array $weatherHourRawData,
+        array $weatherDayRawData
+    ): VisualCrossingData {
+        $weatherData = new VisualCrossingData();
+        $weatherData->setLatitude($latitude)
+            ->setLongitude($longitude)
+            ->setTemperature($weatherHourRawData['temp'])
+            ->setFeelsLike($weatherHourRawData['feelslike'])
+            ->setTemperatureMin($weatherDayRawData['tempmin'])
+            ->setTemperatureMax($weatherDayRawData['tempmax'])
+            ->setHumidity($weatherHourRawData['humidity'] / 100)
+            ->setPressure($weatherHourRawData['pressure'])
+            ->setWindSpeed($weatherHourRawData['windspeed'])
+            ->setWindDirection($weatherHourRawData['winddir'])
+            ->setPrecipitation($weatherHourRawData['precip'])
+            ->setPrecipitationProbability($weatherHourRawData['precipprob'])
+            ->setCloudCover($weatherHourRawData['cloudcover'] / 100);
+
+        $now = new DateTime();
+
+        $utcDateTime = (new DateTime())
+            ->setTimezone(new DateTimeZone('UTC'))
+            ->setTimestamp($weatherHourRawData['datetimeEpoch']);
+
+        $weatherData->setUtcDateTime($utcDateTime);
+
+        if($now > $utcDateTime) {
+            $weatherData->setType(WeatherDataInterface::HISTORICAL);
+        } else {
+            $weatherData->setType(WeatherDataInterface::FORECAST);
+        }
+
+        return $weatherData;
     }
 }
