@@ -18,13 +18,30 @@ use Lostfocus\Weather\Exceptions\WeatherException;
 class BrightSky extends AbstractProvider
 {
 
+    /**
+     * @throws WeatherException
+     */
     public function getCurrentWeatherData(
         float $latitude,
         float $longitude,
         string $units = self::UNIT_METRIC,
         string $lang = 'en'
     ): WeatherDataInterface {
-        // TODO: Implement getCurrentWeatherData() method.
+        $query = [
+            'lat' => $latitude,
+            'lon' => $longitude,
+            'units' => $this->mapUnits($units),
+        ];
+        $queryString = sprintf('https://api.brightsky.dev/current_weather?%s', http_build_query($query));
+
+        $weatherRawData = $this->getArrayFromQueryString($queryString);
+
+        return $this->mapRawData(
+            $latitude,
+            $longitude,
+            $weatherRawData['weather'],
+            WeatherDataInterface::CURRENT
+        );
     }
 
     public function getForecast(
@@ -93,7 +110,7 @@ class BrightSky extends AbstractProvider
     private function mapRawData(
         float $latitude,
         float $longitude,
-        array $weatherHourRawData,
+        array $rawData,
         ?string $type = null
     ): BrightSkyData {
         $weatherData = (new BrightSkyData())
@@ -101,7 +118,7 @@ class BrightSky extends AbstractProvider
             ->setLongitude($longitude);
 
         $utcDateTime = (new DateTime())->setTimezone(new DateTimeZone('UTC'));
-        $utcDateTime->setTimestamp(strtotime($weatherHourRawData['timestamp']));
+        $utcDateTime->setTimestamp(strtotime($rawData['timestamp']));
 
         $weatherData->setUtcDateTime($utcDateTime);
         $weatherData->setType($type);
@@ -114,13 +131,25 @@ class BrightSky extends AbstractProvider
             }
         }
 
-        $weatherData->setTemperature($weatherHourRawData['temperature'])
-            ->setHumidity($weatherHourRawData['relative_humidity'] / 100)
-            ->setPressure($weatherHourRawData['pressure_msl'])
-            ->setWindSpeed($weatherHourRawData['wind_speed'])
-            ->setWindDirection($weatherHourRawData['wind_direction'])
-            ->setPrecipitation($weatherHourRawData['precipitation'])
-            ->setCloudCover($weatherHourRawData['cloud_cover']);
+        $weatherData->setTemperature($rawData['temperature'])
+            ->setHumidity($rawData['relative_humidity'] / 100)
+            ->setPressure($rawData['pressure_msl']);
+        if (array_key_exists('wind_speed', $rawData)) {
+            $weatherData->setWindSpeed($rawData['wind_speed']);
+        } elseif (array_key_exists('wind_speed_10', $rawData)) {
+            $weatherData->setWindSpeed($rawData['wind_speed_10']);
+        }
+        if (array_key_exists('wind_direction', $rawData)) {
+            $weatherData->setWindDirection($rawData['wind_direction']);
+        } elseif (array_key_exists('wind_direction_10', $rawData)) {
+            $weatherData->setWindDirection($rawData['wind_direction_10']);
+        }
+        if (array_key_exists('precipitation', $rawData)) {
+            $weatherData->setPrecipitation($rawData['precipitation']);
+        } elseif (array_key_exists('precipitation_10', $rawData)) {
+            $weatherData->setPrecipitation($rawData['precipitation_10']);
+        }
+        $weatherData->setCloudCover($rawData['cloud_cover']);
 
         return $weatherData;
     }
