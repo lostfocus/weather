@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace Lostfocus\Weather\Provider\BrightSky;
 
-
 use DateInterval;
 use DateTime;
 use DateTimeInterface;
@@ -104,6 +103,7 @@ class BrightSky extends AbstractProvider
     ): WeatherDataCollectionInterface {
         $now = (new DateTime())->setTimezone(new DateTimeZone('UTC'));
         $tenDays = (clone $now)->add(new DateInterval('P10D'));
+
         return $this->getWeatherDataCollection($now, $latitude, $longitude, $units, $tenDays);
     }
 
@@ -185,7 +185,7 @@ class BrightSky extends AbstractProvider
             'lon' => $longitude,
             'units' => $this->mapUnits($units),
         ];
-        if($lastDateTime !== null) {
+        if ($lastDateTime !== null) {
             $query[' last_date'] = $lastDateTime->format('c');
         }
         $queryString = sprintf('https://api.brightsky.dev/weather?%s', http_build_query($query));
