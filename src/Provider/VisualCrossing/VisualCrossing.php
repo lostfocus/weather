@@ -30,13 +30,22 @@ class VisualCrossing extends AbstractProvider
         parent::__construct($client, $requestFactory);
     }
 
+    /**
+     * @throws WeatherException
+     */
     public function getCurrentWeatherData(
         float $latitude,
         float $longitude,
         string $units = self::UNIT_METRIC,
         string $lang = 'en'
     ): WeatherDataInterface {
-        // TODO: Implement getCurrentWeatherData() method.
+        return $this->getHistorical(
+            $latitude,
+            $longitude,
+            new DateTime(),
+            $units,
+            $lang
+        );
     }
 
     public function getForecast(
