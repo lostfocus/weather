@@ -37,7 +37,20 @@ class Tomorrow extends AbstractProvider
         string $units = self::UNIT_METRIC,
         string $lang = 'en'
     ): WeatherDataInterface {
-        // TODO: Implement getCurrentWeatherData() method.
+
+        $query = [
+            'location' => implode(',', [$latitude, $longitude]),
+            'fields' => $this->getQueryFields(),
+            'units' => $units,
+            'timesteps' => ['current'],
+            'apikey' => $this->key,
+        ];
+
+        $queryString = sprintf('https://api.tomorrow.io/v4/timelines?%s', $this->createQueryString($query));
+
+        $weatherRawData = $this->getArrayFromQueryString($queryString);
+
+        return $this->mapRawData($weatherRawData['data']['timelines'][0]['intervals'][0], $latitude, $longitude, WeatherDataInterface::CURRENT);
     }
 
     public function getForecast(
@@ -177,22 +190,7 @@ class Tomorrow extends AbstractProvider
     ): WeatherDataCollection {
         $query = [
             'location' => implode(',', [$latitude, $longitude]),
-            'fields' => [
-                'temperature',
-                'windSpeed',
-                'windDirection',
-                'precipitationIntensity',
-                'precipitationProbability',
-                'pressureSeaLevel',
-                'humidity',
-                'precipitationType',
-                'windGust',
-                'temperatureApparent',
-                'cloudCover',
-                'cloudBase',
-                'cloudCeiling',
-                'weatherCode',
-            ],
+            'fields' => $this->getQueryFields(),
             'units' => $units,
             'timesteps' => ['current', '1h'],
             'startTime' => $dateTime->format('Y-m-d\TH:i:s\Z'),
@@ -237,5 +235,28 @@ class Tomorrow extends AbstractProvider
         }
 
         return $weatherCollection;
+    }
+
+    /**
+     * @return string[]
+     */
+    private function getQueryFields(): array
+    {
+        return [
+            'temperature',
+            'windSpeed',
+            'windDirection',
+            'precipitationIntensity',
+            'precipitationProbability',
+            'pressureSeaLevel',
+            'humidity',
+            'precipitationType',
+            'windGust',
+            'temperatureApparent',
+            'cloudCover',
+            'cloudBase',
+            'cloudCeiling',
+            'weatherCode',
+        ];
     }
 }
