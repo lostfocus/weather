@@ -4,10 +4,12 @@ declare(strict_types=1);
 namespace Lostfocus\Weather\Common;
 
 use DateInterval;
+use DateTime;
 use DateTimeInterface;
 use Http\Client\HttpClient;
 use Http\Discovery\Psr17FactoryDiscovery;
 use JsonException;
+use Lostfocus\Weather\Exceptions\DateNotInTheFutureException;
 use Lostfocus\Weather\Exceptions\ForecastNoMaxDateException;
 use Lostfocus\Weather\Exceptions\ForecastNotPossibleException;
 use Lostfocus\Weather\Exceptions\InvalidCredentials;
@@ -99,6 +101,10 @@ abstract class AbstractProvider implements ProviderInterface
         string $units = self::UNIT_METRIC,
         string $lang = 'en'
     ): ?WeatherDataInterface {
+        if ($dateTime < new DateTime()) {
+            throw new DateNotInTheFutureException();
+        }
+
         $forecastCollection = $this->getForecastCollection($latitude, $longitude, $units, $lang);
 
         $maxForecastDate = $forecastCollection->getMaxDate();

@@ -12,9 +12,6 @@ use Lostfocus\Weather\Common\AbstractProvider;
 use Lostfocus\Weather\Common\WeatherDataCollection;
 use Lostfocus\Weather\Common\WeatherDataCollectionInterface;
 use Lostfocus\Weather\Common\WeatherDataInterface;
-use Lostfocus\Weather\Exceptions\DateNotInTheFutureException;
-use Lostfocus\Weather\Exceptions\ForecastNoMaxDateException;
-use Lostfocus\Weather\Exceptions\ForecastNotPossibleException;
 use Lostfocus\Weather\Exceptions\WeatherException;
 use Psr\Http\Message\RequestFactoryInterface;
 
@@ -80,24 +77,16 @@ class DarkSky extends AbstractProvider
         string $units = self::UNIT_METRIC,
         string $lang = 'en'
     ): ?WeatherDataInterface {
-        if ($dateTime < new DateTime()) {
-            throw new DateNotInTheFutureException();
-        }
+        $limitInterval = new DateInterval('PT12H');
 
-        $forecastCollection = $this->getForecastCollection($latitude, $longitude, $units, $lang);
-
-        $maxForecastDate = $forecastCollection->getMaxDate();
-        if ($maxForecastDate === null) {
-            throw new ForecastNoMaxDateException();
-        }
-
-        $limit = $maxForecastDate->add(new DateInterval('PT12H'));
-
-        if ($dateTime > $limit) {
-            throw new ForecastNotPossibleException();
-        }
-
-        return $forecastCollection->getClosest($dateTime);
+        return $this->getForecastFromCollectionWithLimit(
+            $latitude,
+            $longitude,
+            $dateTime,
+            $limitInterval,
+            $units,
+            $lang
+        );
     }
 
     /**

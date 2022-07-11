@@ -177,7 +177,7 @@ class VisualCrossing extends AbstractProvider
 
         $weatherData->setUtcDateTime($utcDateTime);
 
-        if($now > $utcDateTime) {
+        if ($now > $utcDateTime) {
             $weatherData->setType(WeatherDataInterface::HISTORICAL);
         } else {
             $weatherData->setType(WeatherDataInterface::FORECAST);
