@@ -12,8 +12,6 @@ use Lostfocus\Weather\Common\AbstractProvider;
 use Lostfocus\Weather\Common\WeatherDataCollection;
 use Lostfocus\Weather\Common\WeatherDataCollectionInterface;
 use Lostfocus\Weather\Common\WeatherDataInterface;
-use Lostfocus\Weather\Exceptions\ForecastNoMaxDateException;
-use Lostfocus\Weather\Exceptions\ForecastNotPossibleException;
 use Lostfocus\Weather\Exceptions\HistoricalDataNotAvailableException;
 use Lostfocus\Weather\Exceptions\WeatherException;
 use Psr\Http\Message\RequestFactoryInterface;
@@ -72,20 +70,16 @@ class Tomorrow extends AbstractProvider
         string $units = self::UNIT_METRIC,
         string $lang = 'en'
     ): ?WeatherDataInterface {
-        $forecastCollection = $this->getForecastCollection($latitude, $longitude, $units, $lang);
+        $limitInterval = new DateInterval('PT1H');
 
-        $maxForecastDate = $forecastCollection->getMaxDate();
-        if ($maxForecastDate === null) {
-            throw new ForecastNoMaxDateException();
-        }
-
-        $limit = $maxForecastDate->add(new DateInterval('PT1H'));
-
-        if ($dateTime > $limit) {
-            throw new ForecastNotPossibleException();
-        }
-
-        return $forecastCollection->getClosest($dateTime);
+        return $this->getForecastFromCollectionWithLimit(
+            $latitude,
+            $longitude,
+            $dateTime,
+            $limitInterval,
+            $units,
+            $lang
+        );
     }
 
     /**

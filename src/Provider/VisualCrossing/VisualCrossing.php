@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Lostfocus\Weather\Provider\VisualCrossing;
 
+use DateInterval;
 use DateTime;
 use DateTimeInterface;
 use DateTimeZone;
@@ -48,6 +49,9 @@ class VisualCrossing extends AbstractProvider
         );
     }
 
+    /**
+     * @throws WeatherException
+     */
     public function getForecast(
         float $latitude,
         float $longitude,
@@ -55,7 +59,16 @@ class VisualCrossing extends AbstractProvider
         string $units = self::UNIT_METRIC,
         string $lang = 'en'
     ): ?WeatherDataInterface {
-        // TODO: Implement getForecast() method.
+        $limitInterval = new DateInterval('PT1H');
+
+        return $this->getForecastFromCollectionWithLimit(
+            $latitude,
+            $longitude,
+            $dateTime,
+            $limitInterval,
+            $units,
+            $lang
+        );
     }
 
     /**

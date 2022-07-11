@@ -3,9 +3,13 @@ declare(strict_types=1);
 
 namespace Lostfocus\Weather\Common;
 
+use DateInterval;
+use DateTimeInterface;
 use Http\Client\HttpClient;
 use Http\Discovery\Psr17FactoryDiscovery;
 use JsonException;
+use Lostfocus\Weather\Exceptions\ForecastNoMaxDateException;
+use Lostfocus\Weather\Exceptions\ForecastNotPossibleException;
 use Lostfocus\Weather\Exceptions\InvalidCredentials;
 use Lostfocus\Weather\Exceptions\QuotaExceeded;
 use Lostfocus\Weather\Exceptions\ServerException;
@@ -82,5 +86,32 @@ abstract class AbstractProvider implements ProviderInterface
         }
 
         return $body;
+    }
+
+    /**
+     * @throws WeatherException
+     */
+    protected function getForecastFromCollectionWithLimit(
+        float $latitude,
+        float $longitude,
+        DateTimeInterface $dateTime,
+        DateInterval $limitInterval,
+        string $units = self::UNIT_METRIC,
+        string $lang = 'en'
+    ): ?WeatherDataInterface {
+        $forecastCollection = $this->getForecastCollection($latitude, $longitude, $units, $lang);
+
+        $maxForecastDate = $forecastCollection->getMaxDate();
+        if ($maxForecastDate === null) {
+            throw new ForecastNoMaxDateException();
+        }
+
+        $limit = $maxForecastDate->add($limitInterval);
+
+        if ($dateTime > $limit) {
+            throw new ForecastNotPossibleException();
+        }
+
+        return $forecastCollection->getClosest($dateTime);
     }
 }
