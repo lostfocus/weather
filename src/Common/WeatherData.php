@@ -22,7 +22,10 @@ class WeatherData implements WeatherDataInterface
     protected ?float $cloudCover = null;
     protected ?DateTimeInterface $utcDateTime = null;
     protected ?string $type = null;
-    protected ?Source $source = null;
+    /**
+     * @var Source[]
+     */
+    protected array $sources = [];
 
     /**
      * @return float|null
@@ -310,20 +313,18 @@ class WeatherData implements WeatherDataInterface
     }
 
     /**
-     * @return Source|null
+     * @return Source[]
      */
-    public function getSource(): ?Source
+    public function getSources(): array
     {
-        return $this->source;
+        return $this->sources;
     }
 
-    /**
-     * @param  Source|null  $source
-     * @return WeatherData
-     */
-    public function setSource(?Source $source): self
+    public function addSource(Source $source): self
     {
-        $this->source = $source;
+        if (!in_array($source, $this->sources, true)) {
+            $this->sources[] = $source;
+        }
 
         return $this;
     }

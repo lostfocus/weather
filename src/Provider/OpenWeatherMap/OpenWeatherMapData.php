@@ -10,10 +10,12 @@ final class OpenWeatherMapData extends WeatherData
 {
     public function __construct()
     {
-        $this->source = new Source(
-            'openweathermap',
-            'OpenWeather',
-            'https://openweathermap.org'
+        $this->addSource(
+            new Source(
+                'openweathermap',
+                'OpenWeather',
+                'https://openweathermap.org'
+            )
         );
     }
 }

@@ -10,10 +10,12 @@ class VisualCrossingData extends WeatherData
 {
     public function __construct()
     {
-        $this->source = new Source(
-            'visualcrossing',
-            'Visual Crossing',
-            'https://www.visualcrossing.com/'
+        $this->addSource(
+            new Source(
+                'visualcrossing',
+                'Visual Crossing',
+                'https://www.visualcrossing.com/'
+            )
         );
     }
 }

@@ -10,10 +10,12 @@ class DarkSkyData extends WeatherData
 {
     public function __construct()
     {
-        $this->source = new Source(
-            'darksky',
-            'Dark Sky',
-            'https://darksky.net/poweredby/'
+        $this->addSource(
+            new Source(
+                'darksky',
+                'Dark Sky',
+                'https://darksky.net/poweredby/'
+            )
         );
     }
 }

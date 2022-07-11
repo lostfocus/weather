@@ -10,10 +10,12 @@ class TomorrowData extends WeatherData
 {
     public function __construct()
     {
-        $this->source = new Source(
-            'tomorrow',
-            'tomorrow.io',
-            'https://www.tomorrow.io/'
+        $this->addSource(
+            new Source(
+                'tomorrow',
+                'tomorrow.io',
+                'https://www.tomorrow.io/'
+            )
         );
     }
 }
