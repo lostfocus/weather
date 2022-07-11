@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Lostfocus\Weather\Provider\BrightSky;
 
 
+use DateInterval;
 use DateTime;
 use DateTimeInterface;
 use DateTimeZone;
@@ -44,6 +45,15 @@ class BrightSky extends AbstractProvider
         );
     }
 
+    /**
+     * @param  float  $latitude
+     * @param  float  $longitude
+     * @param  DateTimeInterface  $dateTime
+     * @param  string  $units
+     * @param  string  $lang
+     * @return WeatherDataInterface|null
+     * @throws WeatherException
+     */
     public function getForecast(
         float $latitude,
         float $longitude,
@@ -51,7 +61,16 @@ class BrightSky extends AbstractProvider
         string $units = self::UNIT_METRIC,
         string $lang = 'en'
     ): ?WeatherDataInterface {
-        // TODO: Implement getForecast() method.
+        $limitInterval = new DateInterval('P10D');
+
+        return $this->getForecastFromCollectionWithLimit(
+            $latitude,
+            $longitude,
+            $dateTime,
+            $limitInterval,
+            $units,
+            $lang
+        );
     }
 
     /**
@@ -64,22 +83,7 @@ class BrightSky extends AbstractProvider
         string $units = self::UNIT_METRIC,
         string $lang = 'en'
     ): ?WeatherDataInterface {
-        $query = [
-            'date' => $dateTime->format('c'),
-            'lat' => $latitude,
-            'lon' => $longitude,
-            'units' => $this->mapUnits($units),
-        ];
-        $queryString = sprintf('https://api.brightsky.dev/weather?%s', http_build_query($query));
-
-        $weatherRawData = $this->getArrayFromQueryString($queryString);
-
-        $weatherDataCollection = new WeatherDataCollection();
-
-        foreach ($weatherRawData['weather'] as $weatherHourRawData) {
-            $weatherDataCollection->add($this->mapRawData($latitude, $longitude, $weatherHourRawData));
-
-        }
+        $weatherDataCollection = $this->getWeatherDataCollection($dateTime, $latitude, $longitude, $units);
 
         $closets = $weatherDataCollection->getClosest($dateTime);
         if ($closets === null) {
@@ -89,13 +93,18 @@ class BrightSky extends AbstractProvider
         return $closets;
     }
 
+    /**
+     * @throws WeatherException
+     */
     public function getForecastCollection(
         float $latitude,
         float $longitude,
         string $units = self::UNIT_METRIC,
         string $lang = 'en'
     ): WeatherDataCollectionInterface {
-        // TODO: Implement getForecastCollection() method.
+        $now = (new DateTime())->setTimezone(new DateTimeZone('UTC'));
+        $tenDays = (clone $now)->add(new DateInterval('P10D'));
+        return $this->getWeatherDataCollection($now, $latitude, $longitude, $units, $tenDays);
     }
 
     private function mapUnits(string $units): string
@@ -152,5 +161,43 @@ class BrightSky extends AbstractProvider
         $weatherData->setCloudCover($rawData['cloud_cover']);
 
         return $weatherData;
+    }
+
+    /**
+     * @param  DateTimeInterface  $dateTime
+     * @param  float  $latitude
+     * @param  float  $longitude
+     * @param  string  $units
+     * @param  DateTimeInterface|null  $lastDateTime
+     * @return WeatherDataCollection
+     * @throws WeatherException
+     */
+    private function getWeatherDataCollection(
+        DateTimeInterface $dateTime,
+        float $latitude,
+        float $longitude,
+        string $units,
+        ?DateTimeInterface $lastDateTime = null
+    ): WeatherDataCollection {
+        $query = [
+            'date' => $dateTime->format('c'),
+            'lat' => $latitude,
+            'lon' => $longitude,
+            'units' => $this->mapUnits($units),
+        ];
+        if($lastDateTime !== null) {
+            $query[' last_date'] = $lastDateTime->format('c');
+        }
+        $queryString = sprintf('https://api.brightsky.dev/weather?%s', http_build_query($query));
+
+        $weatherRawData = $this->getArrayFromQueryString($queryString);
+
+        $weatherDataCollection = new WeatherDataCollection();
+
+        foreach ($weatherRawData['weather'] as $weatherHourRawData) {
+            $weatherDataCollection->add($this->mapRawData($latitude, $longitude, $weatherHourRawData));
+        }
+
+        return $weatherDataCollection;
     }
 }
