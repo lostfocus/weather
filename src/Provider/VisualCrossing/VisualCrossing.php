@@ -87,21 +87,7 @@ class VisualCrossing extends AbstractProvider
             http_build_query($query)
         );
 
-        $weatherRawData = $this->getArrayFromQueryString($queryString);
-
-        $weatherCollection = new WeatherDataCollection();
-
-        foreach ($weatherRawData['days'] as $weatherDayRawData) {
-            foreach ($weatherDayRawData['hours'] as $weatherHourRawData) {
-                $weatherData = $this->mapWeatherData(
-                    $weatherRawData['latitude'],
-                    $weatherRawData['longitude'],
-                    $weatherHourRawData,
-                    $weatherDayRawData
-                );
-                $weatherCollection->add($weatherData);
-            }
-        }
+        $weatherCollection = $this->getWeatherCollectionFromQueryString($queryString);
 
         $historical = $weatherCollection->getClosest($dateTime);
         if ($historical === null) {
@@ -111,13 +97,33 @@ class VisualCrossing extends AbstractProvider
         return $historical;
     }
 
+    /**
+     * @throws WeatherException
+     */
     public function getForecastCollection(
         float $latitude,
         float $longitude,
         string $units = self::UNIT_METRIC,
         string $lang = 'en'
     ): WeatherDataCollectionInterface {
-        // TODO: Implement getForecastCollection() method.
+        $queryUrl = sprintf(
+            'https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/%s',
+            implode(',', [$latitude, $longitude])
+        );
+
+        $query = [
+            'key' => $this->key,
+            'lang' => $lang,
+            'unitGroup' => $this->mapUnits($units),
+        ];
+
+        $queryString = sprintf(
+            '%s?%s',
+            $queryUrl,
+            http_build_query($query)
+        );
+
+        return $this->getWeatherCollectionFromQueryString($queryString);
     }
 
     private function mapUnits(string $units): string
@@ -165,5 +171,31 @@ class VisualCrossing extends AbstractProvider
         }
 
         return $weatherData;
+    }
+
+    /**
+     * @param  string  $queryString
+     * @return WeatherDataCollection
+     * @throws WeatherException
+     */
+    private function getWeatherCollectionFromQueryString(string $queryString): WeatherDataCollection
+    {
+        $weatherRawData = $this->getArrayFromQueryString($queryString);
+
+        $weatherCollection = new WeatherDataCollection();
+
+        foreach ($weatherRawData['days'] as $weatherDayRawData) {
+            foreach ($weatherDayRawData['hours'] as $weatherHourRawData) {
+                $weatherData = $this->mapWeatherData(
+                    $weatherRawData['latitude'],
+                    $weatherRawData['longitude'],
+                    $weatherHourRawData,
+                    $weatherDayRawData
+                );
+                $weatherCollection->add($weatherData);
+            }
+        }
+
+        return $weatherCollection;
     }
 }
