@@ -12,6 +12,8 @@ use Lostfocus\Weather\Common\AbstractProvider;
 use Lostfocus\Weather\Common\WeatherDataCollection;
 use Lostfocus\Weather\Common\WeatherDataCollectionInterface;
 use Lostfocus\Weather\Common\WeatherDataInterface;
+use Lostfocus\Weather\Exceptions\ForecastNoMaxDateException;
+use Lostfocus\Weather\Exceptions\ForecastNotPossibleException;
 use Lostfocus\Weather\Exceptions\HistoricalDataNotAvailableException;
 use Lostfocus\Weather\Exceptions\WeatherException;
 use Psr\Http\Message\RequestFactoryInterface;
@@ -31,6 +33,9 @@ class Tomorrow extends AbstractProvider
     }
 
 
+    /**
+     * @throws WeatherException
+     */
     public function getCurrentWeatherData(
         float $latitude,
         float $longitude,
@@ -50,9 +55,17 @@ class Tomorrow extends AbstractProvider
 
         $weatherRawData = $this->getArrayFromQueryString($queryString);
 
-        return $this->mapRawData($weatherRawData['data']['timelines'][0]['intervals'][0], $latitude, $longitude, WeatherDataInterface::CURRENT);
+        return $this->mapRawData(
+            $weatherRawData['data']['timelines'][0]['intervals'][0],
+            $latitude,
+            $longitude,
+            WeatherDataInterface::CURRENT
+        );
     }
 
+    /**
+     * @throws WeatherException
+     */
     public function getForecast(
         float $latitude,
         float $longitude,
@@ -60,7 +73,20 @@ class Tomorrow extends AbstractProvider
         string $units = self::UNIT_METRIC,
         string $lang = 'en'
     ): ?WeatherDataInterface {
-        // TODO: Implement getForecast() method.
+        $forecastCollection = $this->getForecastCollection($latitude, $longitude, $units, $lang);
+
+        $maxForecastDate = $forecastCollection->getMaxDate();
+        if ($maxForecastDate === null) {
+            throw new ForecastNoMaxDateException();
+        }
+
+        $limit = $maxForecastDate->add(new DateInterval('PT1H'));
+
+        if ($dateTime > $limit) {
+            throw new ForecastNotPossibleException();
+        }
+
+        return $forecastCollection->getClosest($dateTime);
     }
 
     /**
@@ -91,13 +117,18 @@ class Tomorrow extends AbstractProvider
         return $weatherCollection->getClosest($dateTime);
     }
 
+    /**
+     * @throws WeatherException
+     */
     public function getForecastCollection(
         float $latitude,
         float $longitude,
         string $units = self::UNIT_METRIC,
         string $lang = 'en'
     ): WeatherDataCollectionInterface {
-        // TODO: Implement getForecastCollection() method.
+        $now = (new DateTime())->setTimezone(new DateTimeZone('UTC'));
+
+        return $this->getWeatherCollection($latitude, $longitude, $units, $now);
     }
 
     private function createQueryString(array $query): string
@@ -173,12 +204,6 @@ class Tomorrow extends AbstractProvider
     }
 
     /**
-     * @param  float  $latitude
-     * @param  float  $longitude
-     * @param  string  $units
-     * @param  DateTimeInterface  $dateTime
-     * @param  DateTime  $endTime
-     * @return WeatherDataCollection
      * @throws WeatherException
      */
     private function getWeatherCollection(
@@ -186,7 +211,7 @@ class Tomorrow extends AbstractProvider
         float $longitude,
         string $units,
         DateTimeInterface $dateTime,
-        DateTime $endTime
+        ?DateTime $endTime = null
     ): WeatherDataCollection {
         $query = [
             'location' => implode(',', [$latitude, $longitude]),
@@ -194,9 +219,13 @@ class Tomorrow extends AbstractProvider
             'units' => $units,
             'timesteps' => ['current', '1h'],
             'startTime' => $dateTime->format('Y-m-d\TH:i:s\Z'),
-            'endTime' => $endTime->format('Y-m-d\TH:i:s\Z'),
             'apikey' => $this->key,
         ];
+
+        if ($endTime !== null) {
+            $query['endTime'] = $endTime->format('Y-m-d\TH:i:s\Z');
+        }
+
 
         $queryString = sprintf('https://api.tomorrow.io/v4/timelines?%s', $this->createQueryString($query));
 
