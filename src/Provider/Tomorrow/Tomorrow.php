@@ -32,7 +32,6 @@ class Tomorrow extends AbstractProvider
         parent::__construct($client, $requestFactory);
     }
 
-
     /**
      * @throws WeatherException
      */
