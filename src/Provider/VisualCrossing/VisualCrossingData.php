@@ -1,20 +1,20 @@
 <?php
 declare(strict_types=1);
 
-namespace Lostfocus\Weather\Provider\OpenWeatherMap;
+namespace Lostfocus\Weather\Provider\VisualCrossing;
 
 use Lostfocus\Weather\Common\Source;
 use Lostfocus\Weather\Common\WeatherData;
 
-final class OpenWeatherMapData extends WeatherData
+class VisualCrossingData extends WeatherData
 {
     public function __construct()
     {
         $this->addSource(
             new Source(
-                'openweathermap',
-                'OpenWeather',
-                'https://openweathermap.org'
+                'visualcrossing',
+                'Visual Crossing',
+                'https://www.visualcrossing.com/'
             )
         );
     }

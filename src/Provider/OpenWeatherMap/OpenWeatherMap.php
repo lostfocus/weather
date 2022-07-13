@@ -3,12 +3,16 @@ declare(strict_types=1);
 
 namespace Lostfocus\Weather\Provider\OpenWeatherMap;
 
+use DateInterval;
 use DateTime;
+use DateTimeInterface;
 use DateTimeZone;
 use Http\Client\HttpClient;
-use JsonException;
 use Lostfocus\Weather\Common\AbstractProvider;
+use Lostfocus\Weather\Common\WeatherDataCollection;
+use Lostfocus\Weather\Common\WeatherDataCollectionInterface;
 use Lostfocus\Weather\Common\WeatherDataInterface;
+use Lostfocus\Weather\Exceptions\HistoricalDataNotAvailableException;
 use Lostfocus\Weather\Exceptions\WeatherException;
 use Psr\Http\Message\RequestFactoryInterface;
 
@@ -45,30 +49,95 @@ class OpenWeatherMap extends AbstractProvider
             $lang
         );
 
-        $request = $this->getRequest('GET', $querystring);
+        $weatherRawData = $this->getArrayFromQueryString($querystring);
 
-        $response = $this->getParsedResponse($request);
+        return $this->mapWeatherData(WeatherDataInterface::CURRENT, $weatherRawData, $latitude, $longitude);
+    }
 
-        try {
-            $weatherRawData = json_decode($response, true, 512, JSON_THROW_ON_ERROR);
-        } catch (JsonException $e) {
-            throw new WeatherException($e->getMessage(), $e->getCode(), $e);
+    /**
+     * @throws WeatherException
+     */
+    public function getForecastCollection(
+        float $latitude,
+        float $longitude,
+        string $units = self::UNIT_METRIC,
+        string $lang = 'en'
+    ): WeatherDataCollectionInterface {
+        $querystring = sprintf(
+            "https://api.openweathermap.org/data/2.5/forecast?lat=%s&lon=%s&appid=%s&units=%s&lang=%s",
+            $latitude,
+            $longitude,
+            $this->key,
+            $units,
+            $lang
+        );
+
+        $weatherRawData = $this->getArrayFromQueryString($querystring);
+
+        $weatherDataLatitude = $latitude;
+        $weatherDataLongitude = $longitude;
+        if (
+            array_key_exists('city', $weatherRawData) &&
+            is_array($weatherRawData['city']) &&
+            array_key_exists('coord', $weatherRawData['city']) &&
+            is_array($weatherRawData['city']['coord'])
+        ) {
+            if (array_key_exists('lat', $weatherRawData['city']['coord'])) {
+                $weatherDataLatitude = $weatherRawData['city']['coord']['lat'];
+            }
+            if (array_key_exists('lon', $weatherRawData['city']['coord'])) {
+                $weatherDataLongitude = $weatherRawData['city']['coord']['lon'];
+            }
         }
 
+        $weatherData = new WeatherDataCollection();
+
+        foreach ($weatherRawData['list'] as $weatherRawDataItem) {
+            $weatherData->add(
+                $this->mapWeatherData(
+                    WeatherDataInterface::FORECAST,
+                    $weatherRawDataItem,
+                    $weatherDataLatitude,
+                    $weatherDataLongitude
+                )
+            );
+        }
+
+        return $weatherData;
+    }
+
+    /**
+     * @param  string  $type
+     * @param  array  $weatherRawData
+     * @param  float  $latitude
+     * @param  float  $longitude
+     * @return OpenWeatherMapData
+     */
+    private function mapWeatherData(
+        string $type,
+        array $weatherRawData,
+        float $latitude,
+        float $longitude
+    ): OpenWeatherMapData {
         $weatherData = new OpenWeatherMapData();
-        $weatherData->setType(WeatherDataInterface::CURRENT);
+        $weatherData->setType($type);
 
         if (array_key_exists('coord', $weatherRawData) && is_array($weatherRawData['coord'])) {
             if (array_key_exists('lat', $weatherRawData['coord'])) {
                 $weatherData->setLatitude($weatherRawData['coord']['lat']);
-            } else {
-                $weatherData->setLatitude($latitude);
             }
             if (array_key_exists('lon', $weatherRawData['coord'])) {
                 $weatherData->setLongitude($weatherRawData['coord']['lon']);
             } else {
                 $weatherData->setLongitude($longitude);
             }
+        }
+
+        if ($weatherData->getLatitude() === null) {
+            $weatherData->setLatitude($latitude);
+        }
+        if ($weatherData->getLongitude() === null) {
+            $weatherData->setLongitude($longitude);
         }
 
         if (array_key_exists('main', $weatherRawData) && is_array($weatherRawData['main'])) {
@@ -101,6 +170,18 @@ class OpenWeatherMap extends AbstractProvider
             }
         }
 
+        if (
+            array_key_exists('clouds', $weatherRawData) &&
+            is_array($weatherRawData['clouds']) &&
+            array_key_exists('all', $weatherRawData['clouds'])
+        ) {
+            $weatherData->setCloudCover($weatherRawData['clouds']['all'] / 100);
+        }
+
+        if (array_key_exists('pop', $weatherRawData)) {
+            $weatherData->setPrecipitationProbability($weatherRawData['pop']);
+        }
+
         $dateTime = (new DateTime())->setTimezone(new DateTimeZone('UTC'));
         if (array_key_exists('dt', $weatherRawData)) {
             $dateTime->setTimestamp($weatherRawData['dt']);
@@ -108,5 +189,52 @@ class OpenWeatherMap extends AbstractProvider
         $weatherData->setUtcDateTime($dateTime);
 
         return $weatherData;
+    }
+
+    /**
+     * @param  float  $latitude
+     * @param  float  $longitude
+     * @param  DateTimeInterface  $dateTime
+     * @param  string  $units
+     * @param  string  $lang
+     * @return WeatherDataInterface|null
+     * @throws WeatherException
+     */
+    public function getForecast(
+        float $latitude,
+        float $longitude,
+        DateTimeInterface $dateTime,
+        string $units = self::UNIT_METRIC,
+        string $lang = 'en'
+    ): ?WeatherDataInterface {
+        $limitInterval = new DateInterval('PT1H30M');
+
+        return $this->getForecastFromCollectionWithLimit(
+            $latitude,
+            $longitude,
+            $dateTime,
+            $limitInterval,
+            $units,
+            $lang
+        );
+    }
+
+    /**
+     * @param  float  $latitude
+     * @param  float  $longitude
+     * @param  DateTimeInterface  $dateTime
+     * @param  string  $units
+     * @param  string  $lang
+     * @return WeatherDataInterface|null
+     * @throws WeatherException
+     */
+    public function getHistorical(
+        float $latitude,
+        float $longitude,
+        DateTimeInterface $dateTime,
+        string $units = self::UNIT_METRIC,
+        string $lang = 'en'
+    ): ?WeatherDataInterface {
+        throw new HistoricalDataNotAvailableException();
     }
 }

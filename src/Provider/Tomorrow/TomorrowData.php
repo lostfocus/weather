@@ -1,20 +1,20 @@
 <?php
 declare(strict_types=1);
 
-namespace Lostfocus\Weather\Provider\OpenWeatherMap;
+namespace Lostfocus\Weather\Provider\Tomorrow;
 
 use Lostfocus\Weather\Common\Source;
 use Lostfocus\Weather\Common\WeatherData;
 
-final class OpenWeatherMapData extends WeatherData
+class TomorrowData extends WeatherData
 {
     public function __construct()
     {
         $this->addSource(
             new Source(
-                'openweathermap',
-                'OpenWeather',
-                'https://openweathermap.org'
+                'tomorrow',
+                'tomorrow.io',
+                'https://www.tomorrow.io/'
             )
         );
     }

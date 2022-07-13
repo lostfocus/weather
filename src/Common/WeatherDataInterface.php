@@ -4,8 +4,9 @@ declare(strict_types=1);
 namespace Lostfocus\Weather\Common;
 
 use DateTimeInterface;
+use JsonSerializable;
 
-interface WeatherDataInterface
+interface WeatherDataInterface extends JsonSerializable
 {
     public const CURRENT = 'current';
     public const HISTORICAL = 'historical';
@@ -37,11 +38,18 @@ interface WeatherDataInterface
 
     public function getPrecipitation(): ?float;
     public function setPrecipitation(?float $precipitation): self;
+    public function getPrecipitationProbability(): ?float;
+    public function setPrecipitationProbability(?float $precipitationProbability): self;
+    public function getCloudCover(): ?float;
+    public function setCloudCover(?float $cloudCover): self;
 
     public function getUtcDateTime(): ?DateTimeInterface;
     public function setUtcDateTime(?DateTimeInterface $utcDateTime): self;
     public function getType(): ?string;
     public function setType(?string $type): self;
-    public function getSource(): ?string;
-    public function setSource(?string $source): self;
+    /**
+     * @return Source[]
+     */
+    public function getSources(): array;
+    public function addSource(Source $source): self;
 }

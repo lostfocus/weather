@@ -1,20 +1,20 @@
 <?php
 declare(strict_types=1);
 
-namespace Lostfocus\Weather\Provider\OpenWeatherMap;
+namespace Lostfocus\Weather\Provider\DarkSky;
 
 use Lostfocus\Weather\Common\Source;
 use Lostfocus\Weather\Common\WeatherData;
 
-final class OpenWeatherMapData extends WeatherData
+class DarkSkyData extends WeatherData
 {
     public function __construct()
     {
         $this->addSource(
             new Source(
-                'openweathermap',
-                'OpenWeather',
-                'https://openweathermap.org'
+                'darksky',
+                'Dark Sky',
+                'https://darksky.net/poweredby/'
             )
         );
     }
