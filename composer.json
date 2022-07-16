@@ -17,7 +17,8 @@
     "ext-json": "*",
     "php-http/client-implementation": "^1.0",
     "php-http/message-factory": "^1.0.2",
-    "php-http/discovery": "^1.4"
+    "php-http/discovery": "^1.4",
+    "php-http/httplug": "^2.2"
   },
   "require-dev": {
     "phpstan/phpstan": "^1.6",
